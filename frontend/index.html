@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>NetSim — Network Simulation & Visualization</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root {
+  --bg: #07100e; --panel: #0c1815; --panel2: #101f1b; --line: #1d3830;
+  --text: #ecf8f3; --muted: #89a59c; --accent: #5ee7b7; --accent2: #31c895;
+  --warn: #ffd166; --danger: #ff6b7a; --blue: #6ea8fe;
+  --shadow: 0 20px 70px rgba(0,0,0,.35); --radius: 20px;
+}
+
+* { box-sizing: border-box; }
+html { scrollbar-gutter: stable; }
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at 15% 10%, rgba(49,200,149,.12), transparent 30%),
+              radial-gradient(circle at 90% 80%, rgba(110,168,254,.09), transparent 28%), var(--bg);
+  color: var(--text);
+  font: 14px Inter, Segoe UI, system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+button, input, select { font: inherit; } 
+button { cursor: pointer; }
+
+/* Custom sleek scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1d3830; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #31c895; }
+
+.app { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 250px; position: fixed; inset: 0 auto 0 0; padding: 22px 16px; display: flex; flex-direction: column; overflow-y: auto;
+  background: rgba(7,16,14,.88); border-right: 1px solid var(--line);
+  backdrop-filter: blur(18px); z-index: 20;
+}
+
+.brand { display: flex; gap: 12px; align-items: center; padding: 6px 8px 24px; }
+.logo {
+  width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--accent), #1b6b54); color: #062018;
+  font-weight: 900; box-shadow: 0 0 35px rgba(94,231,183,.18);
+}
+.brand b { font-size: 17px; }
+.brand span { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+
+.nav { display: grid; gap: 7px; margin-bottom: 18px; }
+.nav button {
+  border: 1px solid transparent; background: transparent; color: #a9c1ba;
+  text-align: left; padding: 12px 13px; border-radius: 13px; transition: .2s;
+}
+.nav button:hover, .nav button.active { background: #10231e; border-color: #1d4136; color: var(--text); }
+.nav button.active { box-shadow: inset 3px 0 var(--accent); }
+
+.status {
+  margin-top: auto; flex-shrink: 0; padding: 12px;
+  border: 1px solid var(--line); border-radius: 14px; background: #0b1714;
+}
+.dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 10px var(--accent); margin-right: 7px;
+}
+
+.main { margin-left: 250px; width: calc(100% - 250px); padding: 28px 28px 90px; max-width: 1700px; }
+.topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+.crumb { color: var(--muted); font-size: 12px; }
+.title { font-size: 27px; font-weight: 800; margin: 5px 0; }
+.actions { display: flex; gap: 8px; }
+
+.btn { border: 1px solid var(--line); background: #10211d; color: var(--text); padding: 10px 14px; border-radius: 11px; }
+.btn:hover { border-color: #2d5a4d; }
+.btn.primary { background: linear-gradient(135deg, var(--accent2), #229c75); border: 0; color: #04140f; font-weight: 800; }
+.btn.danger { color: #ff9ca6; }
+.btn.small { padding: 7px 10px; font-size: 12px; }
+
+.view { display: none; }
+.view.active { display: block; }
+
+.hero {
+  min-height: clamp(300px, 42vh, 390px); padding: clamp(28px, 4vw, 50px); border: 1px solid var(--line); border-radius: 28px;
+  background: linear-gradient(135deg, rgba(18,45,37,.88), rgba(8,19,16,.88)),
+              radial-gradient(circle at 85% 30%, rgba(94,231,183,.15), transparent 35%);
+  box-shadow: var(--shadow); position: relative; overflow: hidden;
+}
+.hero:after {
+  content: ""; position: absolute; width: 420px; height: 420px;
+  border: 1px solid rgba(94,231,183,.12); border-radius: 50%; right: -160px; top: -180px;
+  box-shadow: 0 0 0 55px rgba(94,231,183,.025), 0 0 0 110px rgba(94,231,183,.018);
+}
+.eyebrow { color: var(--accent); font-weight: 800; letter-spacing: .12em; text-transform: uppercase; font-size: 11px; }
+.hero h1 { font-size: clamp(34px, 4.4vw, 60px); line-height: .98; max-width: 760px; margin: 14px 0; }
+.hero p { color: #9eb8af; max-width: 680px; font-size: 16px; line-height: 1.7; }
+.hero-actions { display: flex; gap: 10px; margin-top: 28px; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-top: 18px; }
+.feature { padding: 20px; border: 1px solid var(--line); background: rgba(12,24,21,.82); border-radius: 18px; cursor: pointer; transition: .2s; }
+.feature:hover { transform: translateY(-3px); border-color: #2d5a4d; }
+.icon { font-size: 24px; }
+.feature h3 { margin: 12px 0 7px; }
+.feature p { color: var(--muted); line-height: 1.55; margin: 0; }
+
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; }
+.panel { background: rgba(12,24,21,.86); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.panel.pad { padding: 18px; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+.panel-head h2, .panel-head h3 { margin: 0; font-size: 15px; }
+.muted { color: var(--muted); }
+
+.form { display: grid; gap: 11px; }
+.form label { font-size: 11px; color: #91aaa2; }
+.form input, .form select { width: 100%; padding: 10px 11px; border-radius: 10px; border: 1px solid #244139; background: #081511; color: var(--text); outline: none; }
+.form input:focus, .form select:focus { border-color: #4dbf99; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.canvas-wrap {
+  position: relative; height: var(--canvas-h, 560px); overflow: hidden; border-radius: 0 0 var(--radius) var(--radius);
+  background: linear-gradient(rgba(80,120,105,.06) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(80,120,105,.06) 1px, transparent 1px), #07110e;
+  background-size: 32px 32px;
+}
+#netCanvas, #routeCanvas, #failureCanvas { width: 100%; height: 100%; display: block; }
+.hint { position: absolute; left: 14px; bottom: 12px; padding: 7px 10px; border-radius: 9px; background: rgba(4,12,10,.82); color: #79948b; font-size: 11px; border: 1px solid var(--line); }
+
+.node-list { max-height: 160px; overflow-y: auto; margin-top: 10px; padding-right: 6px; }
+.node-row, .link-row { 
+  display: flex; justify-content: space-between; align-items: center; gap: 8px; 
+  padding: 10px 12px; margin-bottom: 8px; background: rgba(8, 21, 17, 0.6); 
+  border: 1px solid #193129; border-radius: 10px; color: #b5c9c2; font-size: 12px; transition: border-color 0.2s ease;
+}
+.node-row:hover, .link-row:hover { border-color: #2d5a4d; }
+.node-row:last-child, .link-row:last-child { margin-bottom: 0; }
+
+.metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 14px; }
+.metric { padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: #0a1713; }
+.metric .k { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.metric .v { font-size: 20px; font-weight: 800; margin-top: 5px; }
+.metric .s { font-size: 10px; color: #68827a; margin-top: 3px; }
+
+.result { margin-top: 14px; }
+.path { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pill { padding: 6px 9px; border-radius: 999px; background: #123329; border: 1px solid #245344; color: #aee9d4; font-size: 11px; }
+.arrow { color: #52756a; }
+.empty { padding: 35px; text-align: center; color: #708b82; }
+.success { color: var(--accent); }
+.danger-text { color: var(--danger); }
+
+.compare-table { width: 100%; border-collapse: collapse; }
+.compare-table th, .compare-table td { padding: 11px; border-bottom: 1px solid var(--line); text-align: left; }
+.compare-table th { color: #8fa9a0; font-size: 11px; text-transform: uppercase; }
+.badge { padding: 4px 7px; border-radius: 7px; background: #123329; color: #8fe0c2; font-size: 10px; }
+.failure-panel { margin-top: 16px; }
+.state-tag { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; font-size:10px; border:1px solid var(--line); }
+.state-tag.up { color:var(--accent); border-color:#245344; background:#10251f; }
+.state-tag.down { color:#ff9ca6; border-color:#71333c; background:#2a1418; }
+.link-row.down, .node-row.down { border-color:#71333c; background:rgba(75,22,29,.24); }
+.failure-summary { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+.failure-result { padding:14px; margin-top:12px; border:1px solid var(--line); background:#091611; border-radius:12px; line-height:1.7; }
+.btn.warning { color:#ffd166; border-color:#65562e; }
+
+.chartbox { height: 280px; padding: 15px; }
+
+.switch-canvas-wrap { position:relative; height:440px; overflow:hidden; background:
+  linear-gradient(rgba(80,120,105,.055) 1px, transparent 1px),
+  linear-gradient(90deg, rgba(80,120,105,.055) 1px, transparent 1px), #07110e;
+  background-size:32px 32px; border-bottom:1px solid var(--line); }
+#switchingCanvas { display:block; width:100%; height:100%; }
+.switch-legend { position:absolute; left:12px; bottom:10px; display:flex; gap:10px; flex-wrap:wrap;
+  padding:7px 9px; border-radius:9px; background:rgba(4,12,10,.88); border:1px solid var(--line);
+  color:#9bb7ad; font-size:10px; pointer-events:none; }
+.legend-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:4px; }
+.switch-status { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 15px;
+  border-bottom:1px solid var(--line); color:#a9c1ba; font-size:12px; }
+.switch-status strong { color:#5ee7b7; }
+.switch-events { max-height:125px; overflow:auto; padding:10px 15px; border-bottom:1px solid var(--line);
+  font:11px ui-monospace,Consolas,monospace; color:#8fb2a7; }
+.switch-event { padding:4px 0; border-bottom:1px solid #132b24; }
+@media(max-width:760px) { .switch-canvas-wrap { height:360px; } }
+
+
+.log {
+  position: fixed; right: 22px; bottom: 70px; width: 360px; max-width: calc(100vw - 44px); max-height: 280px; z-index: 30;
+  background: #07110f; border: 1px solid #285145; border-radius: 16px; box-shadow: var(--shadow);
+  overflow: hidden; opacity: 0; pointer-events: none; transform: translateY(12px); transition: .25s;
+}
+.log.open { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.log-head { height: 43px; padding: 0 13px; display: flex; align-items: center; justify-content: space-between; background: #0d201b; }
+.log-body { max-height: 230px; overflow: auto; padding: 10px; font: 11px ui-monospace, Consolas, monospace; color: #8fb2a7; }
+.logline { padding: 5px 0; border-bottom: 1px solid #132b24; }
+
+.log-trigger {
+  position: fixed; right: 22px; bottom: 22px; z-index: 40; background: #0b1714;
+  border: 1px solid #285145; color: #a9c1ba; padding: 8px 16px; border-radius: 99px;
+  font-weight: 600; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+.log-trigger:hover { background: #122822; color: #ecf8f3; }
+
+.toast {
+  position: fixed; top: 20px; right: 22px; padding: 12px 15px; border: 1px solid #285145;
+  background: #0b1d18; border-radius: 12px; z-index: 50; box-shadow: var(--shadow); display: none;
+}
+.toast.show { display: block; }
+
+@media(max-width: 1100px) {
+  .workspace { grid-template-columns: 1fr; }
+  .sidebar { width: 215px; }
+  .main { margin-left: 215px; width: calc(100% - 215px); }
+}
+@media(max-width: 760px) {
+  .sidebar { position: relative; width: 100%; height: auto; }
+  .status { position: static; margin-top: 18px; }
+  .app { display: block; }
+  .main { margin: 0; width: 100%; padding: 16px 16px 80px; }
+  .nav { grid-template-columns: repeat(2, 1fr); }
+  .cards { grid-template-columns: 1fr; }
+  .hero { padding: 28px; }
+  .metric-grid { grid-template-columns: 1fr 1fr; }
+  .topbar { align-items: flex-start; }
+  .actions { display: none; }
+}
+#heroCanvas{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:.7}
+.hero>*:not(canvas){position:relative;z-index:1}
+.stats{display:flex;flex-wrap:wrap;gap:34px;margin-top:30px}
+.stat b{display:block;font-size:30px;font-weight:800;color:var(--accent)}
+.stat span{color:var(--muted);font-size:12px}
+#netCanvas{touch-action:none}
+.hint{max-width:calc(100% - 28px)}
+.legend-strip{display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;padding:11px 16px;border-top:1px solid var(--line);font-size:11px;color:#9bb7ad}
+.legend-strip:last-child{border-radius:0 0 var(--radius) var(--radius)}
+.canvas-wrap:has(+ .legend-strip){border-radius:0}
+.legend-strip .li{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.lg-bar{width:84px;height:8px;border-radius:99px;background:linear-gradient(90deg,hsl(150 62% 46%),hsl(85 62% 46%),hsl(20 62% 46%))}
+.lg-line{display:inline-block;width:26px;border-radius:3px;background:#5aa88e}
+.lg-tag{padding:2px 7px;border-radius:99px;font-weight:800;font-size:9px;color:#06150f}
+.lg-dash{display:inline-block;width:28px;border-top:3px dashed #ff6b7a}
+.lg-flow{display:inline-block;width:28px;border-top:3px dotted #eafff6;filter:drop-shadow(0 0 4px #5ee7b7)}
+.playbar{display:flex;align-items:center;gap:8px;padding:10px 15px;border-bottom:1px solid var(--line)}
+.playbar input[type=range]{flex:1;min-width:80px;accent-color:#5ee7b7}
+.playbar select{width:auto;padding:6px 8px;border-radius:9px;border:1px solid #244139;background:#081511;color:var(--text)}
+#swTime{min-width:92px;text-align:right;font-variant-numeric:tabular-nums;font-size:12px}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <div class="brand"><div class="logo">N</div><div><b>NetSim</b><span>Network Lab</span></div></div>
+  <nav class="nav">
+    <button class="active" data-view="home">⌂ &nbsp; Overview</button>
+    <button data-view="topology">◈ &nbsp; Topology Builder</button>
+    <button data-view="routing">⇄ &nbsp; Routing Simulation</button>
+    <button data-view="switching">◉ &nbsp; Switching Lab</button>
+    <button data-view="compare">▦ &nbsp; Compare Modes</button>
+    <button data-view="failure">⚡ &nbsp; Failure & Recovery</button>
+  </nav>
+  <div class="status"><span class="dot"></span><b id="backendStatus">Checking backend…</b><div class="muted" style="margin-top:5px;font-size:11px">FastAPI + C++ Engine</div></div>
+</aside>
+
+<main class="main">
+<header class="topbar">
+  <div><div class="crumb">NETSIM / <span id="crumb">OVERVIEW</span></div><div class="title" id="pageTitle">Network Simulation & Visualization</div></div>
+  <div class="actions">
+    <button class="btn small" onclick="loadExample()">Load Example</button>
+    <!-- Update the onclick handler here -->
+    <button class="btn small" onclick="resetCurrentView()">Reset</button>
+  </div>
+</header>
+
+<section class="view active" id="home">
+  <div class="hero"><canvas id="heroCanvas"></canvas>
+    <div class="eyebrow">Interactive Computer Networks Lab</div>
+    <h1>Design. Route. Simulate.</h1>
+    <p>Build a network visually, run shortest-path algorithms, explore circuit/message/packet switching, and compare the resulting performance from one clean workspace.</p>
+    <div class="hero-actions"><button class="btn primary" onclick="showView('topology')">Open Topology Builder →</button><button class="btn" onclick="loadExample();showView('routing')">Run Example Network</button></div>
+    <div class="stats"><div class="stat"><b data-n="2">0</b><span>Routing algorithms</span></div><div class="stat"><b data-n="3">0</b><span>Switching modes</span></div><div class="stat"><b data-n="5">0</b><span>Simulation labs</span></div></div>
+  </div>
+  <div class="cards">
+    <div class="feature" onclick="showView('topology')"><div class="icon">◈</div><h3>Topology Builder</h3><p>Create nodes and links, edit network properties, and remove mistakes instantly.</p></div>
+    <div class="feature" onclick="showView('routing')"><div class="icon">⇄</div><h3>Routing Engine</h3><p>Run Dijkstra or Bellman-Ford and visualize the selected route.</p></div>
+    <div class="feature" onclick="showView('switching')"><div class="icon">◉</div><h3>Switching Lab</h3><p>Compare setup, transmission, propagation and total delay.</p></div>
+    <div class="feature" onclick="showView('compare')"><div class="icon">▦</div><h3>Analytics</h3><p>Compare algorithms and switching modes with charts and metrics.</p></div>
+    <div class="feature" onclick="showView('failure')"><div class="icon">⚡</div><h3>Failure & Recovery</h3><p>Disable a router or link, then calculate whether traffic can reroute.</p></div>
+  </div>
+</section>
+
+<section class="view" id="topology">
+  <div class="workspace">
+    <div class="panel">
+      <div class="panel-head"><div><h2>Interactive Topology</h2><div class="muted">Build your network directly on the canvas</div></div><div class="toolbar"><button class="btn small" onclick="addNodeCenter()">+ Node</button><button class="btn small danger" onclick="deleteSelected()">Delete Selected</button><button class="btn small" onclick="clearAll()">Clear</button></div></div>
+      <div class="canvas-wrap"><canvas id="netCanvas"></canvas><div class="hint">Drag: move node · Click empty: add node · Click two nodes: link · Right-click: delete</div></div><div class="legend-strip"></div>
+    </div>
+    <aside class="panel pad">
+      <h3 style="margin-top:0">Link Properties</h3>
+      <div class="form">
+        <div class="grid2"><div><label>Bandwidth (Mbps)</label><input id="bw" type="number" value="10" min="0.1"></div><div><label>Latency (ms)</label><input id="lat" type="number" value="5" min="0"></div></div>
+        <div><label>Packet Loss (%)</label><input id="loss" type="number" value="0" min="0" max="100"></div>
+        <button class="btn primary" onclick="applyPendingLink()">Apply Link Settings</button>
+      </div>
+      <h3>Network Summary</h3><div class="metric-grid" style="padding:0;grid-template-columns:1fr 1fr"><div class="metric"><div class="k">Nodes</div><div class="v" id="nodeCount">0</div></div><div class="metric"><div class="k">Links</div><div class="v" id="linkCount">0</div></div></div>
+      <h3>Nodes</h3><div id="nodeList" class="node-list"></div><h3>Links</h3><div id="linkList" class="node-list"></div>
+    </aside>
+  </div>
+</section>
+
+<section class="view" id="routing">
+  <div class="workspace">
+    <div class="panel"><div class="panel-head"><div><h2>Routing Simulation</h2><div class="muted">Shortest path based on cumulative link latency</div></div><button class="btn primary" onclick="runRouting()">Run Routing</button></div><div class="canvas-wrap"><canvas id="routeCanvas"></canvas></div><div class="legend-strip"></div><div id="routeMetrics" class="metric-grid"><div class="empty" style="grid-column:1/-1">Run a routing simulation to see results.</div></div></div>
+    <aside class="panel pad"><h3 style="margin-top:0">Routing Configuration</h3><div class="form"><label>Source</label><select id="source"></select><label>Destination</label><select id="destination"></select><label>Algorithm</label><select id="algorithm"><option value="dijkstra">Dijkstra</option><option value="bellman-ford">Bellman-Ford</option></select><button class="btn" onclick="showView('topology')">Edit Topology</button></div><div class="result"><h3>Selected Path</h3><div id="pathBox" class="empty">—</div></div></aside>
+  </div>
+</section>
+
+<section class="view" id="switching">
+  <div class="workspace">
+    <div class="panel">
+      <div class="panel-head"><div><h2>Live Switching Lab</h2><div class="muted">Watch data travel hop-by-hop and acknowledgements return to the sender</div></div><div class="toolbar"><button class="btn primary" onclick="runSwitching()">▶ Start / Replay</button><button class="btn small" onclick="stopSwitchingAnimation()">Stop</button></div></div>
+      <div class="switch-canvas-wrap"><canvas id="switchingCanvas"></canvas><div class="switch-legend"><span><i class="legend-dot" style="background:#5ee7b7"></i>DATA →</span><span><i class="legend-dot" style="background:#ffd166"></i>ACK ←</span><span><i class="legend-dot" style="background:#7aa7ff"></i>SETUP</span></div></div>
+      <div class="playbar">
+        <button class="btn small" onclick="swStep(-1)" title="Previous event (←)">⏮</button>
+        <button class="btn small primary" id="swPlayBtn" onclick="swToggle()" title="Pause / resume (Space)">▶</button>
+        <button class="btn small" onclick="swStep(1)" title="Next event (→)">⏭</button>
+        <input type="range" id="swScrub" min="0" max="1000" value="0" oninput="swScrub(this.value)" title="Scrub through the transmission">
+        <span id="swTime" class="muted">0.0 / 0.0 s</span>
+        <select id="swSpeed" onchange="swSpeed(this.value)" title="Playback speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+      </div>
+      <div class="switch-status"><span id="switchStatus">Configure the simulation, then press Start / Replay.</span><span id="switchProgress">IDLE</span></div>
+      <div id="switchEventLog" class="switch-events"><div class="switch-event">Waiting for transmission…</div></div>
+      <div id="switchMetrics" class="metric-grid"><div class="empty" style="grid-column:1/-1">Configure the simulation and press Start / Replay.</div></div>
+      <div class="chartbox"><canvas id="delayChart"></canvas></div>
+    </div>
+    <aside class="panel pad"><h3 style="margin-top:0">Simulation Inputs</h3><div class="form"><label>Source</label><select id="swSource"></select><label>Destination</label><select id="swDestination"></select><label>Switching Mode</label><select id="switchMode"><option value="circuit">Circuit Switching</option><option value="message">Message Switching</option><option value="packet" selected>Packet Switching</option></select><div class="grid2"><div><label>Message (KB)</label><input id="msgSize" type="number" value="100" min="1"></div><div><label>Packets</label><input id="packets" type="number" value="10" min="1"></div></div><label>Routing Algorithm</label><select id="swAlgorithm"><option value="dijkstra">Dijkstra</option><option value="bellman-ford">Bellman-Ford</option></select>
+      <div class="failure-result" style="font-size:12px;margin-top:15px"><b>What you'll see</b><br><span style="color:#5ee7b7">DATA →</span> moves from source to destination. <span style="color:#ffd166">ACK ←</span> returns to confirm receipt. Circuit mode also shows connection setup before data transfer.</div>
+      <div class="muted" style="font-size:10px;line-height:1.6;margin-top:10px">This is a visual protocol model driven by your selected route and link properties. ACK behaviour represents a reliable transport layer; it is not a claim that every switching technology inherently acknowledges every packet.</div>
+    </div></aside>
+  </div>
+</section>
+
+<section class="view" id="compare">
+  <div class="panel"><div class="panel-head"><div><h2>Algorithm & Switching Comparison</h2><div class="muted">Run both routing algorithms and all three switching modes</div></div><button class="btn primary" onclick="runCompare()">Compare Everything</button></div><div id="compareMetrics" class="metric-grid"><div class="empty" style="grid-column:1/-1">No comparison has been run.</div></div><div class="chartbox" style="height:330px"><canvas id="compareChart"></canvas></div><div style="padding:0 16px 16px;overflow:auto"><table class="compare-table"><thead><tr><th>Mode</th><th>Total Delay</th><th>Setup</th><th>Transmission</th><th>Propagation</th><th>Utilization</th></tr></thead><tbody id="compareBody"><tr><td colspan="6" class="empty">—</td></tr></tbody></table></div></div>
+</section>
+
+<section class="view" id="failure">
+  <div class="workspace">
+    <div class="panel">
+      <div class="panel-head">
+        <div><h2>Network Failure & Automatic Recovery</h2><div class="muted">Failures are applied to the graph sent to the C++ routing engine</div></div>
+        <div class="toolbar"><button class="btn small warning" onclick="analyzeFailure()">Analyze & Reroute</button><button class="btn small" onclick="restoreNetwork()">Restore All</button></div>
+      </div>
+      <div class="canvas-wrap"><canvas id="failureCanvas"></canvas><div class="hint">Green = active · Red = failed · Analyze after changing the network</div></div><div class="legend-strip"></div>
+      <div id="failureResult" class="failure-result">Choose a router or link to fail, then select <b>Analyze & Reroute</b>.</div>
+    </div>
+    <aside class="panel pad">
+      <h3 style="margin-top:0">Router Status</h3>
+      <div class="muted">A failed router and its connected links are excluded from route calculation.</div>
+      <div id="failureNodeList" class="node-list"></div>
+      <h3>Link Status</h3>
+      <div class="muted">A failed link is excluded from the graph, not merely hidden in the drawing.</div>
+      <div id="failureLinkList" class="node-list"></div>
+      <div class="failure-summary" id="failureSummary"></div>
+    </aside>
+  </div>
+</section>
+</main>
+</div>
+
+<div class="log" id="log"><div class="log-head"><b>Event Log</b><button class="btn small" onclick="toggleLog()">Toggle</button></div><div class="log-body" id="logBody"></div></div>
+<div class="toast" id="toast"></div>
+<button class="log-trigger" onclick="toggleLog()">View Event Log</button>
+<script>
+const API = "http://localhost:8000";
+let state={nodes:[],edges:[],selected:null,pendingLink:null,drag:null,route:null,disabledNodes:[],failureRoute:null,failureAnalysis:null};
+let charts={};
+let switchingAnim=null;
+let switchingRaf=0;
+
+const $=id=>document.getElementById(id);
+function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200)}
+function log(msg){const b=$("logBody");const d=document.createElement("div");d.className="logline";d.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;b.prepend(d)}
+function toggleLog(){$("log").classList.toggle("open")}
+function showView(name){
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  $(name).classList.add("active");
+  document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===name));
+  const labels={home:["OVERVIEW","Network Simulation & Visualization"],topology:["TOPOLOGY","Topology Builder"],routing:["ROUTING","Routing Simulation"],switching:["SWITCHING","Switching Lab"],compare:["COMPARE","Algorithm & Switching Comparison"],failure:["FAILURE LAB","Network Failure & Recovery"]};
+  $("crumb").textContent=labels[name][0];$("pageTitle").textContent=labels[name][1];
+  // Force resize on all views containing a canvas so they compute their visible dimensions
+  if(["home","topology","routing","switching","failure"].includes(name)) resizeCanvas();
+  if(name==="home")countUp();
+}
+document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>showView(b.dataset.view));
+
+function addNode(x,y){
+  let n=1;while(state.nodes.some(a=>a===`N${n}`))n++;
+  state.nodes.push(`N${n}`);state.nodePos[`N${n}`]={x,y};state.selected=`N${n}`;
+  refresh();log(`Added node N${n}`);return `N${n}`;
+}
+state.nodePos={};
+
+function addNodeCenter(){const c=$("netCanvas");addNode(c.clientWidth/2+(Math.random()-.5)*100,c.clientHeight/2+(Math.random()-.5)*80)}
+function nodeAt(x,y){for(let i=state.nodes.length-1;i>=0;i--){let n=state.nodes[i],p=state.nodePos[n];if(p&&Math.hypot(x-p.x,y-p.y)<24)return n}return null}
+function edgeAt(x,y){
+  for(let i=0;i<state.edges.length;i++){let e=state.edges[i],a=state.nodePos[e.from],b=state.nodePos[e.to];if(!a||!b)continue;
+    let dx=b.x-a.x,dy=b.y-a.y,t=((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy);t=Math.max(0,Math.min(1,t));let d=Math.hypot(x-(a.x+t*dx),y-(a.y+t*dy));if(d<8)return i}
+  return -1;
+}
+function deleteNode(n){state.edges=state.edges.filter(e=>e.from!==n&&e.to!==n);state.nodes=state.nodes.filter(x=>x!==n);state.disabledNodes=state.disabledNodes.filter(x=>x!==n);delete state.nodePos[n];if(state.selected===n)state.selected=null;refresh();log(`Deleted node ${n}`)}
+function deleteSelected(){if(!state.selected){toast("Select a node first");return}deleteNode(state.selected)}
+function addEdge(a,b){
+  if(a===b)return;
+  if(state.edges.some(e=>(e.from===a&&e.to===b)||(e.from===b&&e.to===a))){toast("Link already exists");return}
+  const latencyText=$("lat").value.trim();
+  const latency=Number(latencyText);
+  if(latencyText===""||!Number.isFinite(latency)||latency<0){
+    toast("Invalid latency: enter a number greater than or equal to 0 ms");
+    return;
+  }
+  state.edges.push({from:a,to:b,bandwidthMbps:+$("bw").value||10,latencyMs:latency,lossPercent:+$("loss").value||0,enabled:true});
+  refresh();log(`Linked ${a} ↔ ${b}`);
+}
+function selectLinkSettings(i){
+  const e=state.edges[i];if(!e)return;
+  state.pendingLink=[e.from,e.to];
+  $("bw").value=e.bandwidthMbps;$("lat").value=e.latencyMs;$("loss").value=e.lossPercent;
+  refresh();toast(`Editing link ${e.from} ↔ ${e.to}`);log(`Selected link ${e.from} ↔ ${e.to} for property editing`);
+}
+function applyPendingLink(){
+  if(!state.pendingLink){toast("Select a link from the canvas or Links list first");return;}
+  const latencyText=$("lat").value.trim();
+  const latency=Number(latencyText);
+  if(latencyText===""||!Number.isFinite(latency)||latency<0){
+    toast("Invalid latency: enter a number greater than or equal to 0 ms");
+    return; // Keep the existing link values and selection unchanged.
+  }
+  let [a,b]=state.pendingLink;
+  let e=state.edges.find(e=>(e.from===a&&e.to===b)||(e.from===b&&e.to===a));
+  if(e){
+    e.bandwidthMbps=Math.max(0.1,+$("bw").value||0.1);
+    e.latencyMs=latency;
+    e.lossPercent=Math.max(0,Math.min(100,+$("loss").value||0));
+    toast("Link settings updated");log(`Updated ${a} ↔ ${b}: ${e.latencyMs} ms, ${e.bandwidthMbps} Mbps, ${e.lossPercent}% loss`);
+  }else addEdge(a,b);
+  state.pendingLink=null;refresh();
+}
+function refresh(){
+  $("nodeCount").textContent = state.nodes.length;
+  $("linkCount").textContent = state.edges.length;
+  
+  $("nodeList").innerHTML = state.nodes.map(n => `<div class="node-row ${state.disabledNodes.includes(n)?"down":""}"><span>${n} ${state.disabledNodes.includes(n)?'<span class="state-tag down">DOWN</span>':'<span class="state-tag up">UP</span>'}</span><button class="btn small danger" onclick="deleteNode('${n}')">×</button></div>`).join("") || '<div class="muted">No nodes</div>';
+  $("linkList").innerHTML = state.edges.map((e,i) => `<div class="link-row ${e.enabled===false?"down":""}" style="cursor:pointer" title="Click to edit this link" onclick="selectLinkSettings(${i})"><span>${e.from} ↔ ${e.to}${state.pendingLink && ((state.pendingLink[0]===e.from&&state.pendingLink[1]===e.to)||(state.pendingLink[0]===e.to&&state.pendingLink[1]===e.from))?' <span class="state-tag up">EDITING</span>':''}<br><small>${e.bandwidthMbps} Mbps · ${e.latencyMs} ms · ${e.lossPercent}% loss</small></span><button class="btn small danger" onclick="event.stopPropagation();deleteEdge(${i})">×</button></div>`).join("") || '<div class="muted">No links</div>';
+  renderFailureControls();
+  
+  // Clear the routing state when the network is modified
+  state.route = null; 
+  
+  populateSelects();
+  drawAll();
+}
+function deleteEdge(i){let e=state.edges[i];state.edges.splice(i,1);refresh();log(`Deleted link ${e.from} ↔ ${e.to}`)}
+function populateSelects(){
+  const selects=["source","destination","swSource","swDestination"];
+  selects.forEach(id=>{let old=$(id).value;$(id).innerHTML=state.nodes.map(n=>`<option>${n}</option>`).join("");if(state.nodes.includes(old))$(id).value=old});
+  if(state.nodes.length>1){$("source").value=state.nodes[0];$("destination").value=state.nodes[state.nodes.length-1];$("swSource").value=state.nodes[0];$("swDestination").value=state.nodes[state.nodes.length-1]}
+}
+function clearAll(){state.nodes=[];state.edges=[];state.nodePos={};state.disabledNodes=[];state.selected=null;state.pendingLink=null;state.route=null;state.failureRoute=null;state.failureAnalysis=null;refresh();log("Network cleared")}
+function loadExample(){
+  state.nodes=["A","B","C","D","E"];{const R=layoutRef(),px=f=>70+f*(R.w-140),py=f=>f*R.h;state.ref=R;state.nodePos={A:{x:px(0),y:py(.62)},B:{x:px(.25),y:py(.28)},C:{x:px(.5),y:py(.62)},D:{x:px(.75),y:py(.28)},E:{x:px(1),y:py(.62)}};}
+  state.edges=[
+    {from:"A",to:"B",bandwidthMbps:20,latencyMs:4,lossPercent:1,enabled:true},
+    {from:"A",to:"C",bandwidthMbps:10,latencyMs:7,lossPercent:0,enabled:true},
+    {from:"B",to:"C",bandwidthMbps:15,latencyMs:3,lossPercent:1,enabled:true},
+    {from:"B",to:"D",bandwidthMbps:12,latencyMs:6,lossPercent:0,enabled:true},
+    {from:"C",to:"D",bandwidthMbps:20,latencyMs:4,lossPercent:.5,enabled:true},
+    {from:"C",to:"E",bandwidthMbps:10,latencyMs:8,lossPercent:1,enabled:true},
+    {from:"D",to:"E",bandwidthMbps:15,latencyMs:3,lossPercent:0,enabled:true}
+  ];state.disabledNodes=[];state.edges.forEach(e=>e.enabled=true);state.failureRoute=null;state.failureAnalysis=null;state.selected=null;refresh();log("Loaded example mesh")}
+// Size the canvas area from the page layout (works even while a view is hidden),
+// and proportionally rescale node positions so the network always fits on screen.
+function layoutRef(){
+  const m=document.querySelector(".main"),cs=getComputedStyle(m);
+  const inner=m.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);
+  const w=Math.max(300,(innerWidth>1100?inner-340-16:inner)-2);
+  const h=innerWidth<=760?420:Math.min(600,Math.max(380,innerHeight-240));
+  return {w,h};
+}
+function syncLayout(){
+  const r=layoutRef();
+  document.documentElement.style.setProperty("--canvas-h",r.h+"px");
+  if(state.ref&&(Math.abs(state.ref.w-r.w)>1||Math.abs(state.ref.h-r.h)>1)){
+    const sx=r.w/state.ref.w,sy=r.h/state.ref.h;
+    Object.values(state.nodePos).forEach(p=>{p.x*=sx;p.y*=sy});
+  }
+  state.ref=r;
+}
+function resizeCanvas(){syncLayout();["heroCanvas","netCanvas","routeCanvas","failureCanvas","switchingCanvas"].forEach(id=>{let c=$(id);if(!c)return;let r=c.getBoundingClientRect(),d=devicePixelRatio||1;c.width=r.width*d;c.height=r.height*d;c.getContext("2d").setTransform(d,0,0,d,0,0)});drawAll()}
+window.addEventListener("resize",resizeCanvas);
+
+const RM=matchMedia("(prefers-reduced-motion: reduce)").matches;
+function linkColor(e){const k=Math.min(1.5,(+e.latencyMs||0)/10+(+e.lossPercent||0)/2);return `hsl(${Math.round(150-k/1.5*130)} 62% 46%)`}
+function pill(ctx,x,y,w,h){const r=h/2;ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function drawCanvas(id, highlight = [], t = performance.now()) {
+  const c=$(id); if(!c||!c.clientWidth)return;
+  const ctx=c.getContext("2d"),w=c.clientWidth,h=c.clientHeight;
+  ctx.clearRect(0,0,w,h);
+  const idx=n=>highlight.indexOf(n),labels=[];
+  state.edges.forEach(e=>{
+    const a=state.nodePos[e.from],b=state.nodePos[e.to];if(!a||!b)return;
+    const failed=e.enabled===false||state.disabledNodes.includes(e.from)||state.disabledNodes.includes(e.to);
+    const i=idx(e.from),j=idx(e.to),hot=i>=0&&j>=0&&Math.abs(i-j)===1;
+    const lw=Math.max(2,Math.min(8,1.5+Math.sqrt(+e.bandwidthMbps||1)*1.1)),col=failed?"#ff6b7a":linkColor(e);
+    ctx.lineCap="round";ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+    ctx.lineWidth=lw;ctx.strokeStyle=col;ctx.globalAlpha=failed||hot?1:(highlight.length?.4:.85);
+    ctx.setLineDash(failed?[8,6]:[]);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;
+    if(hot){const[p,q]=i<j?[a,b]:[b,a];ctx.save();ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);
+      ctx.lineWidth=lw+2;ctx.strokeStyle="#eafff6";ctx.shadowBlur=14;ctx.shadowColor="#5ee7b7";
+      ctx.setLineDash([2,16]);ctx.lineDashOffset=-t/28;ctx.stroke();ctx.restore();}
+    labels.push({e,x:(a.x+b.x)/2,y:(a.y+b.y)/2,col,failed});
+  });
+  ctx.font="12px Segoe UI";ctx.textAlign="center";ctx.textBaseline="middle";
+  labels.forEach(({e,x,y,col,failed})=>{
+    const txt=`${e.latencyMs}ms · ${e.bandwidthMbps}Mbps`+(+e.lossPercent>0?` · ${e.lossPercent}%`:""),tw=ctx.measureText(txt).width+16;
+    pill(ctx,x-tw/2,y-10,tw,20);ctx.fillStyle="rgba(5,13,11,.92)";ctx.fill();ctx.lineWidth=1;ctx.strokeStyle=col;ctx.stroke();
+    ctx.fillStyle=failed?"#ff9ca6":"#cfe8df";ctx.fillText(txt,x,y+.5);
+  });
+  const pulse=(Math.sin(t/320)+1)/2;
+  state.nodes.forEach(n=>{
+    const p=state.nodePos[n];if(!p)return;
+    const hot=idx(n)>=0,sel=state.selected===n,down=state.disabledNodes.includes(n);
+    if(hot){ctx.beginPath();ctx.arc(p.x,p.y,36+pulse*8,0,7);ctx.strokeStyle=`rgba(94,231,183,${.35-pulse*.3})`;ctx.lineWidth=2;ctx.stroke();}
+    ctx.beginPath();ctx.arc(p.x,p.y,hot?36:32,0,7);ctx.fillStyle=down?"#3a1820":hot?"#153f32":"#10231e";ctx.fill();
+    ctx.lineWidth=sel?4:2;ctx.strokeStyle=down?"#ff6b7a":sel?"#ffd166":hot?"#5ee7b7":"#376356";ctx.stroke();
+    ctx.fillStyle="#ecf8f3";ctx.font="bold 18px Segoe UI";ctx.fillText(n,p.x,p.y);
+    if(hot&&(n===highlight[0]||n===highlight[highlight.length-1])){
+      const src=n===highlight[0];pill(ctx,p.x-20,p.y-62,40,18);ctx.fillStyle=src?"#5ee7b7":"#ffd166";ctx.fill();
+      ctx.fillStyle="#06150f";ctx.font="bold 11px Segoe UI";ctx.fillText(src?"SRC":"DST",p.x,p.y-53);
+    }
+  });
+}
+// ---- Hero background: drifting routers with packets ----
+const hero={n:[],pk:[],pairs:[],last:0,spawn:0};
+function drawHero(t){
+  const c=$("heroCanvas");if(!c||!c.clientWidth)return;
+  const ctx=c.getContext("2d"),w=c.clientWidth,h=c.clientHeight;
+  if(!hero.n.length)for(let i=0;i<26;i++)hero.n.push({x:Math.random(),y:Math.random(),vx:(Math.random()-.5)*4e-5,vy:(Math.random()-.5)*6e-5});
+  const dt=RM?0:(hero.last?Math.min(50,t-hero.last):16);hero.last=t;
+  ctx.clearRect(0,0,w,h);hero.pairs=[];
+  hero.n.forEach(n=>{n.x+=n.vx*dt;n.y+=n.vy*dt;if(n.x<0||n.x>1)n.vx*=-1;if(n.y<0||n.y>1)n.vy*=-1});
+  for(let i=0;i<hero.n.length;i++)for(let j=i+1;j<hero.n.length;j++){
+    const A=hero.n[i],B=hero.n[j],d=Math.hypot((A.x-B.x)*w,(A.y-B.y)*h);
+    if(d<170){hero.pairs.push([i,j]);ctx.strokeStyle=`rgba(94,231,183,${(1-d/170)*.3})`;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(A.x*w,A.y*h);ctx.lineTo(B.x*w,B.y*h);ctx.stroke()}
+  }
+  hero.n.forEach(n=>{ctx.fillStyle="rgba(94,231,183,.7)";ctx.beginPath();ctx.arc(n.x*w,n.y*h,3,0,7);ctx.fill()});
+  if(!RM&&t-hero.spawn>600&&hero.pairs.length){hero.spawn=t;const[i,j]=hero.pairs[Math.floor(Math.random()*hero.pairs.length)];hero.pk.push({i,j,p:0})}
+  hero.pk=hero.pk.filter(k=>(k.p+=dt/900)<1);
+  hero.pk.forEach(k=>{const A=hero.n[k.i],B=hero.n[k.j],x=(A.x+(B.x-A.x)*k.p)*w,y=(A.y+(B.y-A.y)*k.p)*h;
+    ctx.save();ctx.shadowBlur=14;ctx.shadowColor="#5ee7b7";ctx.fillStyle="#eafff6";ctx.beginPath();ctx.arc(x,y,3.5,0,7);ctx.fill();ctx.restore()});
+}
+function loop(t){
+  if(RM)t=0;
+  const v=document.querySelector(".view.active")?.id;
+  if(v==="routing"&&state.route?.found)drawCanvas("routeCanvas",state.route.path,t);
+  else if(v==="failure"&&state.failureRoute?.found)drawCanvas("failureCanvas",state.failureRoute.path,t);
+  else if(v==="home")drawHero(performance.now());
+  requestAnimationFrame(loop);
+}
+function countUp(){document.querySelectorAll(".stat b").forEach(el=>{const n=+el.dataset.n,s0=performance.now();
+  const f=now=>{const k=Math.min(1,(now-s0)/900);el.textContent=Math.round(n*(1-Math.pow(1-k,3)));if(k<1)requestAnimationFrame(f)};requestAnimationFrame(f)})}
+function drawAll(){
+  drawCanvas("netCanvas", []);
+  if (state.route) drawCanvas("routeCanvas", state.route.path || []);
+  else {
+    const rc = $("routeCanvas");
+    if (rc && rc.clientWidth) rc.getContext("2d").clearRect(0, 0, rc.width, rc.height);
+  }
+  drawCanvas("failureCanvas", state.failureRoute?.path || []);
+  drawSwitchingCanvas();
+}
+function canvasPos(c,e){let r=c.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+$("netCanvas").addEventListener("click",e=>{
+  if(performance.now()-(state.dragEnd||0)<300)return;
+  let c=$("netCanvas"),p=canvasPos(c,e),n=nodeAt(p.x,p.y);
+  if(n){
+    if(state.pendingLink){
+      if(state.pendingLink[0]!==n){addEdge(state.pendingLink[0],n);state.selected=n;state.pendingLink=null;}
+      else toast("Choose a different node");
+    }else{state.selected=n;state.pendingLink=[n];toast(`Selected ${n}. Choose another node to create a link`);}
+  }else{
+    const i=edgeAt(p.x,p.y);
+    if(i>=0){selectLinkSettings(i);return;}
+    state.pendingLink=null;addNode(p.x,p.y);
+  }
+  refresh();
+});
+$("netCanvas").addEventListener("contextmenu",e=>{e.preventDefault();let c=$("netCanvas"),p=canvasPos(c,e),n=nodeAt(p.x,p.y);if(n)deleteNode(n);else{let i=edgeAt(p.x,p.y);if(i>=0)deleteEdge(i)}});
+
+// ---- Drag nodes to reposition them ----
+(()=>{const nc=$("netCanvas");
+nc.addEventListener("pointerdown",e=>{if(e.button!==0)return;const p=canvasPos(nc,e),n=nodeAt(p.x,p.y);if(n){state.drag={n,sx:p.x,sy:p.y,moved:false};nc.setPointerCapture(e.pointerId)}});
+nc.addEventListener("pointermove",e=>{const p=canvasPos(nc,e),d=state.drag;
+  if(!d){nc.style.cursor=nodeAt(p.x,p.y)?"grab":"";return}
+  if(!d.moved&&Math.hypot(p.x-d.sx,p.y-d.sy)<4)return;
+  d.moved=true;nc.style.cursor="grabbing";
+  state.nodePos[d.n]={x:Math.max(36,Math.min(nc.clientWidth-36,p.x)),y:Math.max(36,Math.min(nc.clientHeight-36,p.y))};drawAll()});
+const end=()=>{if(state.drag?.moved)state.dragEnd=performance.now();state.drag=null;nc.style.cursor=""};
+nc.addEventListener("pointerup",end);nc.addEventListener("pointercancel",end);})();
+async function api(path,body){
+  const r=await fetch(API+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  let data={};try{data=await r.json()}catch{}
+  if(!r.ok){let detail=Array.isArray(data.detail)?data.detail.join(" "):(data.detail||"Request failed");throw new Error(detail)}
+  return data;
+}
+function payload(extra={}){
+  return {nodes:state.nodes,edges:state.edges.map(e=>({...e,enabled:e.enabled!==false})),disabledNodes:[...state.disabledNodes],source:$("source").value||state.nodes[0],destination:$("destination").value||state.nodes[state.nodes.length-1],algorithm:$("algorithm").value,switchingMode:$("switchMode").value,messageSizeKb:+$("msgSize").value||100,numPackets:+$("packets").value||10,...extra};
+}
+function ensureNetwork(){if(state.nodes.length<2||state.edges.length<1){toast("Add at least 2 nodes and 1 link");return false}return true}
+function renderRouteMetrics(r){
+  if(!r.found){$("routeMetrics").innerHTML='<div class="empty danger-text" style="grid-column:1/-1">No route found.</div>';return}
+  $("routeMetrics").innerHTML=[["Latency",r.totalLatencyMs.toFixed(2)+" ms","End-to-end route latency"],["Hops",(r.path.length-1),"Links traversed"],["Bottleneck",r.bottleneckBandwidthMbps.toFixed(2)+" Mbps","Minimum link bandwidth"],["Loss",r.cumulativeLossPercent.toFixed(2)+" %","Cumulative route loss"],["Nodes",r.path.length,"Path nodes"],["Reachable","YES","Destination reachable"]].map(x=>`<div class="metric"><div class="k">${x[0]}</div><div class="v">${x[1]}</div><div class="s">${x[2]}</div></div>`).join("");
+  $("pathBox").innerHTML=`<div class="path">${r.path.map((n,i)=>(i?'<span class="arrow">→</span>':'')+`<span class="pill">${n}</span>`).join("")}</div>`;
+}
+async function runRouting(){if(!ensureNetwork())return;try{let r=await api("/api/route",payload());state.route=r;renderRouteMetrics(r);drawAll();log(`Routing complete: ${r.path?.join(" → ")||"no path"}`)}catch(e){toast(e.message);log("Routing error: "+e.message)}}
+async function runSwitching(){
+  if(!ensureNetwork())return;
+  stopSwitchingAnimation(false);
+  try{
+    let b=payload({source:$("swSource").value,destination:$("swDestination").value,algorithm:$("swAlgorithm").value,switchingMode:$("switchMode").value});
+    let d=await api("/api/simulate",b);state.route=d.route;drawAll();
+    if(!d.switching){toast(d.error||"Switching simulation failed");return}
+    let s=d.switching;
+    $("switchMetrics").innerHTML=[["Total Delay",s.totalDelayMs.toFixed(2)+" ms","Backend-calculated model"],["Setup",s.setupDelayMs.toFixed(2)+" ms","Connection/setup phase"],["Transmission",s.transmissionDelayMs.toFixed(2)+" ms","Data transfer phase"],["Propagation",s.propagationDelayMs.toFixed(2)+" ms","Link propagation"],["Utilization",s.linkUtilizationPercent.toFixed(0)+" %","Model utilization"]].map(x=>`<div class="metric"><div class="k">${x[0]}</div><div class="v">${x[1]}</div><div class="s">${x[2]}</div></div>`).join("");
+    $("pathBox").innerHTML=`<div class="path">${d.route.path.map((n,i)=>(i?'<span class="arrow">→</span>':'')+`<span class="pill">${n}</span>`).join("")}</div>`;
+    updateDelayChart(s);
+    startSwitchingAnimation(d.route.path,b.switchingMode,Math.max(1,Math.min(30,b.numPackets||10)),Math.max(1,b.messageSizeKb||100));
+    log(`${b.switchingMode} switching started: ${d.route.path.join(" → ")}`);
+  }catch(e){toast(e.message);log("Switching error: "+e.message)}
+}
+function stopSwitchingAnimation(updateStatus=true){
+  if(switchingRaf)cancelAnimationFrame(switchingRaf);
+  switchingRaf=0;
+  if(switchingAnim){switchingAnim.stopped=true;switchingAnim=null;}
+  if(updateStatus){
+    const status=$("switchStatus");if(status)status.textContent="Transmission stopped.";
+    const progress=$("switchProgress");if(progress)progress.textContent="STOPPED";
+  }
+  if($("swPlayBtn")){$("swPlayBtn").textContent="▶";$("swScrub").value=0;$("swTime").textContent="0.0 / 0.0 s"}
+  drawSwitchingCanvas();
+}
+function clampNumber(n,min,max){return Math.max(min,Math.min(max,n))}
+function edgeForHop(a,b){return state.edges.find(e=>(e.from===a&&e.to===b)||(e.from===b&&e.to===a))||{latencyMs:5,bandwidthMbps:10,lossPercent:0}}
+function makeSwitchToken(type,path,startAt,sizeKb,color,extra={}){
+  const durations=[];
+  for(let i=0;i<path.length-1;i++){
+    const e=edgeForHop(path[i],path[i+1]);
+    const tx=(Math.max(.01,sizeKb)*8)/Math.max(.1,+e.bandwidthMbps||10);
+    // Visual time is intentionally expanded so humans can follow each hop.
+    durations.push(clampNumber(((+e.latencyMs||0)+tx)*38,430,1550));
+  }
+  return {type,path:[...path],startAt,sizeKb,color,durations,totalDuration:durations.reduce((a,b)=>a+b,0),logged:false,...extra};
+}
+function startSwitchingAnimation(route,mode,packetCount,messageSizeKb){
+  const path=Array.isArray(route)?route:[];
+  if(path.length<2){$("switchStatus").textContent="No route available; cannot transmit."; $("switchProgress").textContent="NO ROUTE";return}
+  const now=performance.now(), tokens=[], events=[];
+  const reverse=[...path].reverse();
+  const msgKb=Math.max(1,messageSizeKb);
+  let cursor=0;
+  const add=(type,p,at,size,color,extra={})=>{
+    const t=makeSwitchToken(type,p,at,size,color,extra);tokens.push(t);return t;
+  };
+  if(mode==="circuit"){
+    const setup=add("SETUP",path,cursor,.02,"#7aa7ff");
+    const setupAck=add("SETUP ACK",reverse,cursor+setup.totalDuration+100,.02,"#ffd166");
+    cursor=setupAck.startAt+setupAck.totalDuration+180;
+    const data=add("DATA STREAM",path,cursor,msgKb,"#5ee7b7");
+    const ack=add("ACK",reverse,data.startAt+data.totalDuration+140,.02,"#ffd166");
+    add("RELEASE",path,ack.startAt+ack.totalDuration+180,.02,"#b3a0ff");
+  } else if(mode==="message"){
+    const data=add("MESSAGE",path,cursor,msgKb,"#5ee7b7");
+    add("ACK",reverse,data.startAt+data.totalDuration+140,.02,"#ffd166");
+  } else {
+    const count=clampNumber(packetCount,1,30), chunk=msgKb/count;
+    for(let i=0;i<count;i++){
+      // Small start offsets create a visible pipeline rather than waiting for every packet.
+      const data=add(`P${i+1}`,path,i*230,chunk,"#5ee7b7",{packetNumber:i+1});
+      const lossChance=path.slice(0,-1).reduce((sum,n,j)=>sum+(+edgeForHop(n,path[j+1]).lossPercent||0),0);
+      const lost=lossChance>0 && ((i*37+Math.round(msgKb))%100)<Math.min(95,lossChance);
+      if(!lost)add(`ACK ${i+1}`,reverse,data.startAt+data.totalDuration+110,.02,"#ffd166",{ackFor:i+1});
+      else events.push({at:data.startAt+data.totalDuration,type:"loss",text:`P${i+1} encountered simulated loss; no ACK returned.`});
+    }
+  }
+  const A={path,mode,tokens,start:now,done:false,stopped:false,packetCount:mode==="packet"?clampNumber(packetCount,1,30):1,elapsed:0,paused:false,last:0,speed:+$("swSpeed").value||1,shown:-1};
+  const log=[{at:0,text:`Route selected: ${path.join(" → ")}.`}];
+  if(mode==="circuit")log.push({at:0,text:"Circuit setup begins; setup acknowledgement must return before data is sent."});
+  else if(mode==="message")log.push({at:0,text:"The complete message is forwarded hop-by-hop, then the receiver returns an ACK."});
+  else log.push({at:0,text:`Splitting ${msgKb} KB into ${A.packetCount} packet(s); each received packet gets an ACK.`});
+  tokens.forEach(t=>{const at=t.startAt+t.totalDuration;let text=null;
+    if(t.type.startsWith("ACK"))text=`${t.type} received at ${path[0]}.`;
+    else if(t.type==="SETUP ACK")text="Setup ACK received; connection established.";
+    else if(t.type==="RELEASE")text="Circuit released; transmission complete.";
+    else if(t.type==="MESSAGE")text="Complete message reached destination.";
+    else if(t.type==="DATA STREAM")text="Data stream reached destination.";
+    else if(t.type==="SETUP")text="Setup request reached destination.";
+    else if(t.type.startsWith("P"))text=`${t.type} reached destination.`;
+    if(text)log.push({at,text})});
+  events.forEach(ev=>log.push({at:ev.at,text:ev.text}));
+  A.total=Math.max(...tokens.map(t=>t.startAt+t.totalDuration),0);
+  log.push({at:A.total,text:"Simulation finished. Delay metrics above come from the backend model."});
+  A.log=log.sort((x,y)=>x.at-y.at);
+  A.marks=[...new Set([0,A.total,...tokens.flatMap(t=>[t.startAt,t.startAt+t.totalDuration])])].sort((x,y)=>x-y);
+  switchingAnim=A;
+  if(switchingRaf)cancelAnimationFrame(switchingRaf);
+  switchingRaf=requestAnimationFrame(swLoop);
+}
+// ---- Playback: virtual clock so the simulation can pause, step, scrub and change speed ----
+function swRender(){
+  const a=switchingAnim;if(!a)return;
+  const el=a.elapsed,total=a.total,vis=a.log.filter(x=>x.at<=el);
+  if(vis.length!==a.shown){a.shown=vis.length;const box=$("switchEventLog");
+    box.innerHTML=vis.map(x=>`<div class="switch-event">[t=${(x.at/1000).toFixed(2)}s] ${x.text}</div>`).join("");box.scrollTop=box.scrollHeight}
+  drawSwitchingCanvas(el);
+  const pct=total?Math.min(100,Math.floor(el/total*100)):100,end=el>=total;
+  $("switchProgress").textContent=end?"COMPLETE":(a.paused?`PAUSED · ${pct}%`:`${pct}%`);
+  $("switchStatus").innerHTML=end?`<strong>TRANSMISSION COMPLETE</strong> · ${a.mode.toUpperCase()} · ${a.path[a.path.length-1]} received data`
+    :`<strong>${a.mode.toUpperCase()} TRANSMISSION${a.paused?" (PAUSED)":""}</strong> · ${a.path.length-1} hop(s) · DATA outbound / ACK inbound`;
+  $("swScrub").value=total?Math.round(el/total*1000):0;
+  $("swTime").textContent=`${(el/1000).toFixed(1)} / ${(total/1000).toFixed(1)} s`;
+  $("swPlayBtn").textContent=a.paused?"▶":"⏸";
+}
+function swLoop(now){
+  const a=switchingAnim;if(!a){switchingRaf=0;return}
+  const dt=a.last?Math.min(100,now-a.last):0;a.last=now;
+  if(!a.paused){a.elapsed=Math.min(a.total,a.elapsed+dt*a.speed);if(a.elapsed>=a.total){a.paused=true;a.done=true}}
+  swRender();
+  switchingRaf=a.paused?0:requestAnimationFrame(swLoop);
+}
+function swNeedRun(){if(!switchingAnim){toast("Press Start / Replay first");return false}return true}
+function swToggle(){
+  if(!swNeedRun())return;const a=switchingAnim;
+  if(a.paused){if(a.elapsed>=a.total)a.elapsed=0;a.paused=false;a.last=0;if(!switchingRaf)switchingRaf=requestAnimationFrame(swLoop)}
+  else a.paused=true;
+  swRender();
+}
+function swStep(dir){
+  if(!swNeedRun())return;const a=switchingAnim,e=a.elapsed;a.paused=true;
+  const m=dir>0?a.marks.find(x=>x>e+1):[...a.marks].reverse().find(x=>x<e-1);
+  a.elapsed=m===undefined?(dir>0?a.total:0):m;swRender();
+}
+function swScrub(v){if(!swNeedRun())return;const a=switchingAnim;a.paused=true;a.elapsed=a.total*v/1000;swRender()}
+function swSpeed(v){if(switchingAnim)switchingAnim.speed=+v||1}
+document.addEventListener("keydown",e=>{
+  if(document.querySelector(".view.active")?.id!=="switching"||/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;
+  if(e.code==="Space"){e.preventDefault();swToggle()}
+  else if(e.code==="ArrowRight")swStep(1);else if(e.code==="ArrowLeft")swStep(-1);
+});
+function addSwitchEvent(message){
+  const box=$("switchEventLog");if(!box)return;
+  if(box.children.length===1&&box.firstElementChild.textContent.includes("Waiting"))box.innerHTML="";
+  const row=document.createElement("div");row.className="switch-event";row.textContent=`[${new Date().toLocaleTimeString()}] ${message}`;
+  box.appendChild(row);box.scrollTop=box.scrollHeight;
+}
+function drawSwitchingCanvas(elapsedOverride){
+  const c=$("switchingCanvas");if(!c||!c.clientWidth||!c.clientHeight)return;
+  const ctx=c.getContext("2d"),w=c.clientWidth,h=c.clientHeight;
+  ctx.clearRect(0,0,w,h);
+  const base=$("netCanvas");
+  const bw=base&&base.clientWidth?base.clientWidth:w,bh=base&&base.clientHeight?base.clientHeight:h;
+  const pos=n=>{const p=state.nodePos[n];return p?{x:p.x*w/bw,y:p.y*h/bh}:null};
+  const path=switchingAnim?.path||state.route?.path||[];
+  // Links
+  state.edges.forEach(e=>{
+    const a=pos(e.from),b=pos(e.to);if(!a||!b)return;
+    const active=path.includes(e.from)&&path.includes(e.to)&&Math.abs(path.indexOf(e.from)-path.indexOf(e.to))===1;
+    const failed=e.enabled===false||state.disabledNodes.includes(e.from)||state.disabledNodes.includes(e.to);
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+    ctx.strokeStyle=failed?"#ff6b7a":active?"#2d8066":"#25443b";ctx.lineWidth=active?4:2;
+    ctx.setLineDash(failed?[7,6]:[]);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle="#6f9185";ctx.font="11px Segoe UI";ctx.textAlign="center";
+    ctx.fillText(`${e.latencyMs}ms · ${e.bandwidthMbps}Mbps`,(a.x+b.x)/2,(a.y+b.y)/2-8);
+  });
+  // Routers
+  state.nodes.forEach(n=>{
+    const p=pos(n);if(!p)return;
+    const failed=state.disabledNodes.includes(n),onPath=path.includes(n);
+    ctx.beginPath();ctx.arc(p.x,p.y,Math.min(23,Math.max(15,w/42)),0,Math.PI*2);
+    ctx.fillStyle=failed?"#421b22":onPath?"#12382c":"#10231e";ctx.fill();
+    ctx.lineWidth=onPath?2.5:1.5;ctx.strokeStyle=failed?"#ff6b7a":onPath?"#5ee7b7":"#376356";ctx.stroke();
+    ctx.fillStyle="#ecf8f3";ctx.font="bold 13px Segoe UI";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(n,p.x,p.y);
+  });
+  if(!switchingAnim)return;
+  const elapsed=switchingAnim.elapsed;
+  switchingAnim.tokens.forEach(t=>{
+    if(elapsed<t.startAt||elapsed>t.startAt+t.totalDuration||t.path.length<2)return;
+    let local=elapsed-t.startAt,hop=0;
+    while(hop<t.durations.length-1&&local>t.durations[hop]){local-=t.durations[hop];hop++}
+    const a=pos(t.path[hop]),b=pos(t.path[hop+1]);if(!a||!b)return;
+    const dur=t.durations[hop]||1,ratio=clampNumber(local/dur,0,1);
+    const x=a.x+(b.x-a.x)*ratio,y=a.y+(b.y-a.y)*ratio;
+    ctx.save();ctx.shadowBlur=16;ctx.shadowColor=t.color;ctx.fillStyle=t.color;
+    ctx.beginPath();ctx.arc(x,y,t.type.startsWith("ACK")||t.type==="SETUP ACK"?6:7,0,Math.PI*2);ctx.fill();ctx.restore();
+    ctx.font="bold 10px Segoe UI";ctx.textAlign="center";ctx.fillStyle=t.color;
+    ctx.fillText(t.type,x,y-13);
+  });
+}
+function updateDelayChart(s){
+  if(charts.delay)charts.delay.destroy();charts.delay=new Chart($("delayChart"),{type:"doughnut",data:{labels:["Setup","Transmission","Propagation"],datasets:[{data:[s.setupDelayMs,s.transmissionDelayMs,s.propagationDelayMs]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:"#a9c1ba"}}}}});
+}
+function clearCompareResults(message){
+  $("compareMetrics").innerHTML=`<div class="empty danger-text" style="grid-column:1/-1">${message}</div>`;
+  $("compareBody").innerHTML='<tr><td colspan="6" class="empty">—</td></tr>';
+  if(charts.compare){charts.compare.destroy();charts.compare=null;}
+}
+async function runCompare(){
+  if(!ensureNetwork())return;
+  const b=payload();
+  if(state.disabledNodes.includes(b.source)||state.disabledNodes.includes(b.destination)){
+    const msg="Source and destination routers must remain operational.";
+    clearCompareResults(msg);toast(msg);log("Comparison blocked: "+msg);return;
+  }
+  try{
+    let d=await api("/api/compare",b);let dj=d.algorithms.dijkstra,bf=d.algorithms["bellman-ford"];
+    $("compareMetrics").innerHTML=[["Dijkstra",dj.found?dj.totalLatencyMs.toFixed(2)+" ms":"N/A","Shortest latency"],["Bellman-Ford",bf.found?bf.totalLatencyMs.toFixed(2)+" ms":"N/A","Shortest latency"],["Same Path",dj.found&&bf.found&&JSON.stringify(dj.path)===JSON.stringify(bf.path)?"YES":"NO","Algorithm result"],["Difference",dj.found&&bf.found?Math.abs(dj.totalLatencyMs-bf.totalLatencyMs).toFixed(2)+" ms":"N/A","Latency gap"]].map(x=>`<div class="metric"><div class="k">${x[0]}</div><div class="v">${x[1]}</div><div class="s">${x[2]}</div></div>`).join("");
+    let m=d.switchingModes||{};$("compareBody").innerHTML=["circuit","message","packet"].map(k=>{let s=m[k];return s?`<tr><td><span class="badge">${k}</span></td><td>${s.totalDelayMs.toFixed(2)} ms</td><td>${s.setupDelayMs.toFixed(2)} ms</td><td>${s.transmissionDelayMs.toFixed(2)} ms</td><td>${s.propagationDelayMs.toFixed(2)} ms</td><td>${s.linkUtilizationPercent.toFixed(0)}%</td></tr>`:`<tr><td><span class="badge">${k}</span></td><td colspan="5">No reachable route</td></tr>`}).join("");
+    if(charts.compare)charts.compare.destroy();charts.compare=new Chart($("compareChart"),{type:"bar",data:{labels:["Circuit","Message","Packet"],datasets:[{label:"Total Delay (ms)",data:["circuit","message","packet"].map(k=>m[k]?.totalDelayMs||0)}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:"#8fa9a0"}},y:{ticks:{color:"#8fa9a0"}}},plugins:{legend:{labels:{color:"#a9c1ba"}}}}});
+    state.route=dj;drawAll();log("Comparison complete");
+  }catch(e){clearCompareResults(e.message);toast(e.message);log("Comparison error: "+e.message)}
+}
+
+function renderFailureControls(){
+  const nodeBox=$("failureNodeList"), linkBox=$("failureLinkList");
+  if(!nodeBox||!linkBox)return;
+  nodeBox.innerHTML=state.nodes.map(n=>`<div class="node-row ${state.disabledNodes.includes(n)?"down":""}">
+    <span><b>${n}</b><br><small>${state.disabledNodes.includes(n)?"Router disabled":"Router operational"}</small></span>
+    <button class="btn small ${state.disabledNodes.includes(n)?"primary":"warning"}" onclick="toggleNodeFailure('${n}')">${state.disabledNodes.includes(n)?"Restore":"Disable"}</button>
+  </div>`).join("")||'<div class="muted">No routers in network</div>';
+  linkBox.innerHTML=state.edges.map((e,i)=>`<div class="link-row ${e.enabled===false?"down":""}">
+    <span><b>${e.from} ↔ ${e.to}</b><br><small>${e.latencyMs} ms · ${e.bandwidthMbps} Mbps</small></span>
+    <button class="btn small ${e.enabled===false?"primary":"warning"}" onclick="toggleLinkFailure(${i})">${e.enabled===false?"Restore":"Fail link"}</button>
+  </div>`).join("")||'<div class="muted">No links in network</div>';
+  const failedLinks=state.edges.filter(e=>e.enabled===false).length;
+  $("failureSummary").innerHTML=`<span class="state-tag up">${state.nodes.length-state.disabledNodes.length} routers up</span><span class="state-tag down">${state.disabledNodes.length} routers down</span><span class="state-tag up">${state.edges.length-failedLinks} links up</span><span class="state-tag down">${failedLinks} links down</span>`;
+}
+function toggleNodeFailure(n){
+  if(state.disabledNodes.includes(n)) state.disabledNodes=state.disabledNodes.filter(x=>x!==n);
+  else state.disabledNodes.push(n);
+  state.failureRoute=null;state.failureAnalysis=null;refresh();log(`Router ${n} ${state.disabledNodes.includes(n)?"disabled":"restored"}`);
+}
+function toggleLinkFailure(i){
+  const e=state.edges[i];if(!e)return;
+  e.enabled=e.enabled===false; // false = failed, true = operational
+  state.failureRoute=null;state.failureAnalysis=null;refresh();log(`Link ${e.from} ↔ ${e.to} ${e.enabled===false?"failed":"restored"}`);
+}
+function restoreNetwork(){
+  state.disabledNodes=[];state.edges.forEach(e=>e.enabled=true);state.failureRoute=null;state.failureAnalysis=null;state.route=null;
+  refresh();$("failureResult").innerHTML="All routers and links restored. Run analysis to calculate the baseline route.";log("Restored all routers and links");
+}
+async function analyzeFailure(){
+  if(!ensureNetwork())return;
+  const b=payload();
+  if(state.disabledNodes.includes(b.source)||state.disabledNodes.includes(b.destination)){
+    toast("Source and destination routers must remain operational");return;
+  }
+  try{
+    const d=await api("/api/failure-analysis",b);
+    state.failureAnalysis=d;state.failureRoute=d.routeAfterFailure;state.route=d.routeAfterFailure;drawAll();
+    const before=d.originalRoute,after=d.routeAfterFailure;
+    let result="";
+    if(!before.found) result='<span class="danger-text"><b>Baseline unreachable.</b></span> There was no route before applying failures.';
+    else if(!after.found) result=`<span class="danger-text"><b>Network partition detected.</b></span> Destination is unreachable after failure. Baseline route: ${before.path.join(" → ")} (${before.totalLatencyMs.toFixed(2)} ms).`;
+    else {
+      const changed=JSON.stringify(before.path)!==JSON.stringify(after.path);
+      const delta=d.latencyChangeMs;
+      result=`<div><span class="success"><b>${changed?"Automatic reroute successful":"Destination remains reachable"}</b></span></div>
+      <div>Before: <b>${before.path.join(" → ")}</b> · ${before.totalLatencyMs.toFixed(2)} ms</div>
+      <div>After: <b>${after.path.join(" → ")}</b> · ${after.totalLatencyMs.toFixed(2)} ms</div>
+      <div>Latency change: <b class="${delta>0?"danger-text":"success"}">${delta>0?"+":""}${delta.toFixed(2)} ms</b></div>`;
+    }
+    $("failureResult").innerHTML=result;
+    log(`Failure analysis: ${before.path?.join(" → ")||"no baseline route"} → ${after.path?.join(" → ")||"unreachable"}`);
+  }catch(e){toast(e.message);log("Failure analysis error: "+e.message)}
+}
+
+async function health(){
+  try{let r=await fetch(API+"/api/health");let d=await r.json();$("backendStatus").textContent="Backend Online";log(`Backend online · ${d.engine}`)}
+  catch{$("backendStatus").textContent="Backend Offline";$("backendStatus").previousElementSibling.style.background="#ff6b7a";log("Backend offline — start server.py")}
+}
+resizeCanvas();loadExample();health();setTimeout(()=>{resizeCanvas()},100);const LEGEND=`<span class="li" title="Score = latency/10 + loss%/2. Green: about 3 ms or less with no loss. Red: 15 ms or more, or about 3% loss."><b>Link color</b><span>Good</span><i class="lg-bar"></i><span>Poor (latency + loss)</span></span>
+<span class="li"><b>Thickness</b><i class="lg-line" style="height:2px"></i><i class="lg-line" style="height:6px"></i><span>Low → high bandwidth</span></span>
+<span class="li"><i class="lg-flow"></i><span>Active route (flows source → destination)</span></span>
+<span class="li"><i class="lg-dash"></i><span>Failed link / router</span></span>
+<span class="li"><i class="lg-tag" style="background:#5ee7b7">SRC</i><i class="lg-tag" style="background:#ffd166">DST</i><span>Source / destination</span></span>`;
+document.querySelectorAll(".legend-strip").forEach(el=>el.innerHTML=LEGEND);
+countUp();requestAnimationFrame(loop);
+
+function resetCurrentView() {
+  const activeView = document.querySelector(".view.active").id;
+
+  if (activeView === "topology") {
+    // Wipes the entire network (Nodes and Links)
+    clearAll(); 
+  } 
+  else if (activeView === "routing") {
+    // Clears only the calculated route, preserves the network
+    state.route = null;
+    $("routeMetrics").innerHTML = '<div class="empty" style="grid-column:1/-1">Run a routing simulation to see results.</div>';
+    $("pathBox").innerHTML = '<div class="empty">—</div>';
+    drawAll();
+  } 
+  else if (activeView === "switching") {
+    stopSwitchingAnimation(false);
+    $("switchStatus").textContent="Configure the simulation, then press Start / Replay.";
+    $("switchProgress").textContent="IDLE";
+    $("switchEventLog").innerHTML='<div class="switch-event">Waiting for transmission…</div>';
+    $("switchMetrics").innerHTML = '<div class="empty" style="grid-column:1/-1">Configure the simulation and press Start / Replay.</div>';
+    if (charts.delay) charts.delay.destroy();
+    drawAll();
+  } 
+  else if (activeView === "compare") {
+    $("compareMetrics").innerHTML = '<div class="empty" style="grid-column:1/-1">No comparison has been run.</div>';
+    $("compareBody").innerHTML = '<tr><td colspan="6" class="empty">—</td></tr>';
+    if (charts.compare) charts.compare.destroy();
+  } else if (activeView === "failure") {
+    state.failureRoute=null;state.failureAnalysis=null;
+    $("failureResult").textContent="Choose a router or link to fail, then select Analyze & Reroute.";
+    drawAll();
+  }
+  
+  log(`Reset applied to ${activeView} view`);
+}
+</script>
+</body>
+</html>
